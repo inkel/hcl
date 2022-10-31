@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestBlockType(t *testing.T) {
@@ -482,5 +483,190 @@ func TestBlockSetLabels(t *testing.T) {
 				t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(test.want), diff)
 			}
 		})
+	}
+}
+
+func TestBlockCopy(t *testing.T) {
+	src := `foo "bar" "baz" {
+  lorem = "ipsum"
+  age   = 44
+}
+`
+	want := Tokens{
+		{
+			Type:         hclsyntax.TokenIdent,
+			Bytes:        []byte(`foo`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenOQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenQuotedLit,
+			Bytes:        []byte(`dolor`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenCQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenOQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenQuotedLit,
+			Bytes:        []byte(`sit`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenCQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenOQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenQuotedLit,
+			Bytes:        []byte(`amet`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenCQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 0,
+		},
+
+		{
+			Type:         hclsyntax.TokenOBrace,
+			Bytes:        []byte{'{'},
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenNewline,
+			Bytes:        []byte{'\n'},
+			SpacesBefore: 0,
+		},
+
+		{
+			Type:         hclsyntax.TokenIdent,
+			Bytes:        []byte(`lorem`),
+			SpacesBefore: 2,
+		},
+		{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte{'='},
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenOQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenQuotedLit,
+			Bytes:        []byte(`ipsum`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenCQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenNewline,
+			Bytes:        []byte{'\n'},
+			SpacesBefore: 0,
+		},
+
+		{
+			Type:         hclsyntax.TokenIdent,
+			Bytes:        []byte(`age`),
+			SpacesBefore: 2,
+		},
+		{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte{'='},
+			SpacesBefore: 3,
+		},
+		{
+			Type:         hclsyntax.TokenNumberLit,
+			Bytes:        []byte{'2', '3'},
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenNewline,
+			Bytes:        []byte{'\n'},
+			SpacesBefore: 0,
+		},
+
+		{
+			Type:         hclsyntax.TokenIdent,
+			Bytes:        []byte(`quux`),
+			SpacesBefore: 2,
+		},
+		{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte{'='},
+			SpacesBefore: 2,
+		},
+		{
+			Type:         hclsyntax.TokenOQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 1,
+		},
+		{
+			Type:         hclsyntax.TokenQuotedLit,
+			Bytes:        []byte(`yes`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenCQuote,
+			Bytes:        []byte(`"`),
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenNewline,
+			Bytes:        []byte{'\n'},
+			SpacesBefore: 0,
+		},
+
+		{
+			Type:         hclsyntax.TokenCBrace,
+			Bytes:        []byte{'}'},
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenNewline,
+			Bytes:        []byte{'\n'},
+			SpacesBefore: 0,
+		},
+		{
+			Type:         hclsyntax.TokenEOF,
+			Bytes:        []byte{},
+			SpacesBefore: 0,
+		},
+	}
+
+	f, _ := ParseConfig([]byte(src), "", hcl.Pos{Line: 1, Column: 1})
+
+	b := f.Body().FirstMatchingBlock("foo", []string{"bar", "baz"})
+	c := b.Clone()
+	c.SetLabels([]string{"dolor", "sit", "amet"})
+	c.Body().SetAttributeValue("quux", cty.StringVal("yes"))
+	c.Body().SetAttributeValue("age", cty.NumberIntVal(23))
+
+	got := f.BuildTokens(nil)
+	format(got)
+	if !reflect.DeepEqual(got, want) {
+		diff := cmp.Diff(want, got)
+		t.Errorf("wrong result\ngot:  %s\nwant: %s\ndiff:\n%s", spew.Sdump(got), spew.Sdump(want), diff)
 	}
 }

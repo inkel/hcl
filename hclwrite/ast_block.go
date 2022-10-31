@@ -60,6 +60,30 @@ func (b *Block) init(typeName string, labels []string) {
 	})
 }
 
+// Clone returns a copy of the block.
+func (b *Block) Clone() *Block {
+	t := newInTree()
+
+	if b.inTree.parent != nil {
+		t.parent = newNode(b.inTree.parent.content)
+	}
+
+	for c := b.inTree.children.first; c != b.inTree.children.last; c = c.after {
+		t.children.Append(c.content)
+	}
+
+	return &Block{
+		inTree: t,
+
+		leadComments: newNode(b.leadComments.content),
+		typeName:     newNode(b.typeName.content),
+		labels:       newNode(b.labels.content),
+		open:         newNode(b.open.content),
+		body:         newNode(b.body.content),
+		close:        newNode(b.close.content),
+	}
+}
+
 // Body returns the body that represents the content of the receiving block.
 //
 // Appending to or otherwise modifying this body will make changes to the
